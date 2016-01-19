@@ -19,7 +19,9 @@ with custom data.
 Installation
 ------------
 
-Get the package for your distribution from the [Releases page](https://github.com/fboender/ansible-cmdb/releases)
+Get the package for your distribution from the [Releases
+page](https://github.com/fboender/ansible-cmdb/releases) (Not required for
+MacOS X install)
 
 For **Debian / Ubuntu** systems:
 
@@ -28,6 +30,10 @@ For **Debian / Ubuntu** systems:
 For **Redhat / Centos** systems:
 
     sudo yum install ansible-cmdb*.rpm
+
+For **MacOS X** systems:
+
+    brew install ansible-cmdb
 
 For **Other** systems:
 
@@ -367,7 +373,7 @@ If you wish to contribute code, please consider the following:
 * One logical change per merge request.
 * By putting in a merge request or putting code in comments, you automatically
   grant me permission to include this code in ansible-cmdb under the license
-  (MIT) that ansible-cmdb uses.
+  (GPLv3) that ansible-cmdb uses.
 * Please don't be disappointed or angry if your contributions end up unused.
   It's not that they aren't appreciated, but I can be somewhat strict when it
   comes to code quality, feature-creep, etc.

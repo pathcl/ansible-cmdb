@@ -50,13 +50,32 @@ if columns is not None:
   ${host['ansible_facts'].get('ansible_fqdn', '')}
 </%def>
 <%def name="col_main_ip(host)">
-  ${host['ansible_facts'].get('ansible_default_ipv4', {}).get('address', '')}
+  <%
+    default_ipv4 = ''
+    if host['ansible_facts'].get('ansible_os_family', '') == 'Windows':
+      ipv4_addresses = [ip for ip in host['ansible_facts'].get('ansible_ip_addresses', []) if ':' not in ip]
+      if ipv4_addresses:
+        default_ipv4 = ipv4_addresses[0]
+    else:
+      default_ipv4 = host['ansible_facts'].get('ansible_default_ipv4', {}).get('address', '')
+  %>
+  ${default_ipv4}
 </%def>
 <%def name="col_all_ip(host)">
-  ${'<br>'.join(host['ansible_facts'].get('ansible_all_ipv4_addresses', []))}
+  <%
+    if host['ansible_facts'].get('ansible_os_family', '') == 'Windows':
+      ipv4_addresses = [ip for ip in host['ansible_facts'].get('ansible_ip_addresses', []) if ':' not in ip]
+    else:
+      ipv4_addresses = host['ansible_facts'].get('ansible_all_ipv4_addresses', [])
+  %>
+  ${'<br>'.join(ipv4_addresses)}
 </%def>
 <%def name="col_os(host)">
-  ${host['ansible_facts'].get('ansible_distribution', '')} ${host['ansible_facts'].get('ansible_distribution_version', '')}
+  % if host['ansible_facts'].get('ansible_distribution', '') in ["OpenBSD"]:
+    ${host['ansible_facts'].get('ansible_distribution', '')} ${host['ansible_facts'].get('ansible_distribution_release', '')}
+  % else:
+    ${host['ansible_facts'].get('ansible_distribution', '')} ${host['ansible_facts'].get('ansible_distribution_version', '')}
+  % endif
 </%def>
 <%def name="col_kernel(host)">
   ${host['ansible_facts'].get('ansible_kernel', '')}
@@ -65,12 +84,12 @@ if columns is not None:
   ${host['ansible_facts'].get('ansible_architecture', '')} / ${host['ansible_facts'].get('ansible_userspace_architecture', '')}
 </%def>
 <%def name="col_virt(host)">
-  ${host['ansible_facts'].get('ansible_virtualization_type', '')} / ${host['ansible_facts'].get('ansible_virtualization_role', '')}
+  ${host['ansible_facts'].get('ansible_virtualization_type', '?')} / ${host['ansible_facts'].get('ansible_virtualization_role', '?')}
 </%def>
 <%def name="col_cpu_type(host)">
   <% cpu_type = host['ansible_facts'].get('ansible_processor', 0)%>
   % if isinstance(cpu_type, list):
-  ${ cpu_type[-1] }
+    ${ cpu_type[-1] }
   % endif
 </%def>
 <%def name="col_vcpus(host)">
@@ -212,34 +231,36 @@ if columns is not None:
     <tr><th>FQDN</th><td>${host['ansible_facts'].get('ansible_fqdn', '')}</td></tr>
     <tr><th>All IPv4</th><td>${'<br>'.join(host['ansible_facts'].get('ansible_all_ipv4_addresses', []))}</td></tr>
   </table>
-  <table class="net_overview">
-    <tr>
-      <th>IPv4 Networks</th>
-      <td>
-        <table class="net_overview">
-          <tr>
-            <th>dev</th>
-            <th>address</th>
-            <th>network</th>
-            <th>netmask</th>
-          </tr>
-          % for iface_name in sorted(host['ansible_facts'].get('ansible_interfaces', [])):
-            <% iface = host['ansible_facts'].get('ansible_' + iface_name, {}) %>
-            % for net in [iface.get('ipv4', {})] + iface.get('ipv4_secondaries', []):
-              % if 'address' in net:
-                <tr>
-                  <td>${iface_name}</td>
-                  <td>${net['address']}</td>
-                  <td>${net['network']}</td>
-                  <td>${net['netmask']}</td>
-                </tr>
-              % endif
+  % if host['ansible_facts'].get('ansible_os_family', '') != "Windows":
+    <table class="net_overview">
+      <tr>
+        <th>IPv4 Networks</th>
+        <td>
+          <table class="net_overview">
+            <tr>
+              <th>dev</th>
+              <th>address</th>
+              <th>network</th>
+              <th>netmask</th>
+            </tr>
+            % for iface_name in sorted(host['ansible_facts'].get('ansible_interfaces', [])):
+              <% iface = host['ansible_facts'].get('ansible_' + iface_name, {}) %>
+              % for net in [iface.get('ipv4', {})] + iface.get('ipv4_secondaries', []):
+                % if 'address' in net:
+                  <tr>
+                    <td>${iface_name}</td>
+                    <td>${net['address']}</td>
+                    <td>${net['network']}</td>
+                    <td>${net['netmask']}</td>
+                  </tr>
+                % endif
+              % endfor
             % endfor
-          % endfor
-        </table>
-      </td>
-    </tr>
-  </table>
+          </table>
+        </td>
+      </tr>
+    </table>
+  % endif
   <table class="net_iface_details">
     <tr>
       <th>Interface details</th>
@@ -268,7 +289,11 @@ if columns is not None:
     <tr>
       <th>Devices</th>
       <td>
-        ${r_dict(host['ansible_facts'].get('ansible_devices', {}))}
+        % if type(host['ansible_facts'].get('ansible_devices')) == list:
+          ${r_list(host['ansible_facts'].get('ansible_devices', []))}
+        % else:
+          ${r_dict(host['ansible_facts'].get('ansible_devices', {}))}
+        % endif
       </td>
     </tr>
     <tr>
@@ -386,7 +411,7 @@ if columns is not None:
     #host_overview tbody a { text-decoration: none; color: #005c9d; }
     #host_overview_tbl_filter { float: right; font-size: small; color: #808080; }
     #host_overview_tbl_filter label input { margin-left: 12px; }
-    #host_overview_tbl_filter #filter_link a { color: #000000; }
+    #host_overview_tbl_filter #filter_link a { color: #000000; background: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAoUlEQVR4Xu2TIQ6EMBBF/+4dOUBFBYoboBHoBsuRUCgcnpDg3/Y7ICQVK3ebvPxJ30xH9QXom/PO/PoDAjSOY8pwIwFFr2EYUobjONj33bjGd3Ylr77v2bYNp7Hwhifs3HOeUdu2LMuCE1DXdedtl612cJ1R0zRM04TT1HVNjPERO/ecZxRCSBnmeWZdV+Ma39mVvABVVZUy3EhA0f//gvQB4y08WIiD/goAAAAASUVORK5CYII=) no-repeat left center; padding: 5px 0 5px 25px; }
     #host_overview_tbl_info { font-size: x-small; margin-top: 16px; color: #C0C0C0; }
     #host_overview .bar { clear: both; }
     #host_overview .prog_bar_full { float: left; display: block; height: 12px; border: 1px solid #000000; padding: 1px; margin-right: 4px; color: white; text-align: center; }
@@ -448,6 +473,9 @@ if columns is not None:
     </thead>
     <tbody>
       % for hostname, host in hosts.items():
+        <%
+        log.debug("Rendering host overview for {0}".format(hostname))
+        %>
         <tr>
           % if 'ansible_facts' not in host:
             <td class="error">${col_name(host)}</td>
@@ -468,6 +496,9 @@ if columns is not None:
 
 <div id="hosts">
   % for hostname, host in hosts.items():
+    <%
+    log.debug("Rendering host details for {0}".format(hostname))
+    %>
     <a href="#${host['name']}" name="${host['name']}"><h3 id="${host['name']}">${host['name']}</h3></a>
     % if 'ansible_facts' not in host:
       <p>No host information collected</p>
@@ -529,7 +560,7 @@ $(document).ready( function () {
     $('#filter_link').remove();
     if (table.search() == "") {
     } else {
-      $('#host_overview_tbl_filter label').after(' <span id="filter_link"><a title="Direct link to search" href="?search='+table.search()+'">&#x2605;</a></span>');
+      $('#host_overview_tbl_filter label').after('&nbsp; <span id="filter_link"><a title="Direct link to search" href="?search='+table.search()+'">&nbsp;</a></span>');
     }
   } );
 

@@ -25,3 +25,10 @@ app.uat.local dtap=uat
 
 [solaris]
 sol_host
+
+[openbsd]
+openbsd.dev.local
+
+[windows]
+win2k8r2.local
+win.dev.local
